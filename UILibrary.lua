@@ -44,10 +44,13 @@ function UI.Text.draw(text)
     love.graphics.setColor(text.color)
     love.graphics.setFont(text.font)
     local hOfFont = text.font:getHeight()
+    local wOfFont = text.font:getWidth("a")
     if text.alignV == "down" then
-        love.graphics.printf(text.text, text.x, text.y + (text.h - hOfFont), text.w, text.alignH)
+        local amountOfLines = math.ceil(#text.text / math.floor(text.w / wOfFont))
+        love.graphics.printf(text.text, text.x, text.y + (text.h - hOfFont * amountOfLines), text.w, text.alignH)
     elseif text.alignV == "center" then
-        love.graphics.printf(text.text, text.x, text.y + (text.h - hOfFont) / 2, text.w, text.alignH)
+        local amountOfLines = math.ceil(#text.text / math.floor(text.w / wOfFont))
+        love.graphics.printf(text.text, text.x, text.y + (text.h - hOfFont * amountOfLines) / 2, text.w, text.alignH)
     else
         love.graphics.printf(text.text, text.x, text.y, text.w, text.alignH)
     end
@@ -93,7 +96,8 @@ end
 function UI.Button.draw(button)
     love.graphics.setColor(button.currentColor)
     if button.image then
-        UI.Image.draw(button.image)
+        love.graphics.draw(button.image, button.x, button.y, 0, button.w / button.image:getWidth(),
+        button.h / button.image:getHeight())
     else
         love.graphics.rectangle("fill", button.x, button.y, button.w, button.h)
     end
@@ -122,15 +126,40 @@ end
 function UI.TextField.draw(textField)
     love.graphics.setColor(textField.currentColor)
     if textField.image then
-        textField.image.color = textField.currentColor
-        UI.Image.draw(textField.image)
+        love.graphics.draw(textField.image, textField.x, textField.y, 0, textField.w / textField.image:getWidth(),
+        textField.h / textField.image:getHeight())
     else
-        love.graphics.setColor(textField.currentColor)
         love.graphics.rectangle("fill", textField.x, textField.y, textField.w, textField.h)
         love.graphics.setColor(textField.outlineColor)
         love.graphics.rectangle("line", textField.x, textField.y, textField.w, textField.h)
     end
     UI.Text.draw(textField.text)
+end
+
+function UI.Bar.init(instance, arg)
+    UIClass.init(instance, arg)
+    instance.h = 20
+    instance.color = arg.color or {1, 0, 0}
+    instance.image = arg.image or love.graphics.newImage("NoImage.png")
+    instance.fill = arg.fill or 1
+end
+
+function UI.Bar:ChangeFill(fill)
+    if fill >= 1 then
+        self.fill = 1
+    elseif fill <= 0 then
+        self.fill = 0
+    else
+        self.fill = fill
+    end
+end
+
+function UI.Bar.draw(bar)
+    love.graphics.setColor(bar.color)
+    love.graphics.setScissor(bar.x, bar.y, bar.w * bar.fill ,bar.h)
+    love.graphics.draw(bar.image, bar.x, bar.y, 0, bar.w / bar.image:getWidth(),
+        bar.h / bar.image:getHeight())
+    love.graphics.setScissor()
 end
 
 function ChangeActiveUI(remove, add)
@@ -208,25 +237,25 @@ function UpdateElementsOn1Down(ActiveUI)
     if currentElementSelected and currentElementSelected.isParent(UI.TextField) then
         currentElementSelected.currentColor = currentElementSelected.color
         currentElementSelected = nil
-    else
-        for i = #ActiveUI, 1, -1 do
-            if currentElementSelected then
-                break
-            end
-            if ActiveUI[i].isParent then
-                if mX > ActiveUI[i].x and mX < ActiveUI[i].x + ActiveUI[i].w and
-                    mY > ActiveUI[i].y and mY < ActiveUI[i].y + ActiveUI[i].h then
-                    if ActiveUI[i].isParent(UI.Button) then
-                        ActiveUI[i].currentColor = ActiveUI[i].clickedColor
-                        ActiveUI[i].trigger()
-                    elseif ActiveUI[i].isParent(UI.TextField) then
-                        ActiveUI[i].currentColor = ActiveUI[i].clickedColor
-                    end
+    end
+    for i = #ActiveUI, 1, -1 do
+        if currentElementSelected then
+            break
+        end
+        if ActiveUI[i].isParent then
+            if mX > ActiveUI[i].x and mX < ActiveUI[i].x + ActiveUI[i].w and
+                mY > ActiveUI[i].y and mY < ActiveUI[i].y + ActiveUI[i].h then
+                if ActiveUI[i].isParent(UI.Button) then
+                    ActiveUI[i].currentColor = ActiveUI[i].clickedColor
+                    currentElementSelected = ActiveUI[i]
+                    ActiveUI[i].trigger()
+                elseif ActiveUI[i].isParent(UI.TextField) then
+                    ActiveUI[i].currentColor = ActiveUI[i].clickedColor
                     currentElementSelected = ActiveUI[i]
                 end
-            else
-                UpdateElementsOn1Down(ActiveUI[i])
             end
+        else
+            UpdateElementsOn1Down(ActiveUI[i])
         end
     end
 end

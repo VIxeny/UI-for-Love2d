@@ -7,7 +7,7 @@ local translateX = 0
 local playerX = 0
 
 function love.load()
-
+    MyBar:ChangeFill(-2)
 end
 
 function love.update(dt)
