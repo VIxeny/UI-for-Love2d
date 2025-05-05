@@ -168,7 +168,9 @@ function UpdateUI()
             currentElementHovered.currentColor = currentElementHovered.color
             currentElementHovered = nil
         end
-        UpdateElements(ActiveUI)
+        if not love.mouse.isDown(1) then
+            UpdateElements(ActiveUI)
+        end
     end
 end
 
