@@ -189,6 +189,7 @@ local mX
 local mY
 local currentElementSelected = nil
 local currentElementHovered = nil
+local previousElementIsTextField = false
 function UpdateUI()
     mX = love.mouse.getX()
     mY = love.mouse.getY()
@@ -224,6 +225,11 @@ end
 
 function UIOn1Down()
     UpdateElementsOn1Down(ActiveUI)
+    if previousElementIsTextField and currentElementSelected and currentElementSelected.isParent(UI.TextField) then
+        currentElementSelected.currentColor = currentElementSelected.color
+        currentElementSelected = nil
+    end
+    previousElementIsTextField = false
 end
 
 function UIon1Release()
@@ -235,6 +241,7 @@ end
 
 function UpdateElementsOn1Down(ActiveUI)
     if currentElementSelected and currentElementSelected.isParent(UI.TextField) then
+        previousElementIsTextField = true
         currentElementSelected.currentColor = currentElementSelected.color
         currentElementSelected = nil
     end
