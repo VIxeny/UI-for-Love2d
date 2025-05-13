@@ -24,6 +24,9 @@ UI.Button = Class.new().extends(UIClass)
 UI.TextField = Class.new().extends(UIClass)
 UI.Image = Class.new().extends(UIClass)
 UI.Bar = Class.new().extends(UIClass)
+UI.Slider = Class.new().extends(UIClass)
+UI.BoxText = Class.new().extends(UIClass)
+UI.BoxMenu = Class.new().extends(UIClass)
 
 function UI.Text.init(instance, arg)
     UIClass.init(instance, arg)
@@ -37,7 +40,28 @@ function UI.Text.init(instance, arg)
     else
         instance.font = love.graphics.getFont()
     end
-    instance.h = arg.h or instance.font:getHeight()
+    instance.hOfFont = instance.font:getHeight()
+    instance.h = arg.h or instance.hOfFont
+    instance.wOfFont = instance.font:getWidth("a")
+    instance.amountOfLines = math.ceil(#instance.text / math.floor(instance.w / instance.wOfFont))
+    if instance.alignV == "down" then
+        instance.finalY = instance.y + (instance.h - instance.hOfFont * instance.amountOfLines)
+    elseif instance.alignV == "center" then
+        instance.finalY = instance.y + (instance.h - instance.hOfFont * instance.amountOfLines)/2
+    else
+        instance.finalY = instance.y
+    end
+end
+
+function UI.Text.textChange(text)
+    text.amountOfLines = math.ceil(#text.text / math.floor(text.w / text.wOfFont))
+    if text.alignV == "down" then
+        text.finalY = text.y + (text.h - text.hOfFont * text.amountOfLines)
+    elseif text.alignV == "center" then
+        text.finalY = text.y + (text.h - text.hOfFont * text.amountOfLines)/2
+    else
+        text.finalY = text.y
+    end
 end
 
 function UI.Text.draw(text)
@@ -45,15 +69,7 @@ function UI.Text.draw(text)
     love.graphics.setFont(text.font)
     local hOfFont = text.font:getHeight()
     local wOfFont = text.font:getWidth("a")
-    if text.alignV == "down" then
-        local amountOfLines = math.ceil(#text.text / math.floor(text.w / wOfFont))
-        love.graphics.printf(text.text, text.x, text.y + (text.h - hOfFont * amountOfLines), text.w, text.alignH)
-    elseif text.alignV == "center" then
-        local amountOfLines = math.ceil(#text.text / math.floor(text.w / wOfFont))
-        love.graphics.printf(text.text, text.x, text.y + (text.h - hOfFont * amountOfLines) / 2, text.w, text.alignH)
-    else
-        love.graphics.printf(text.text, text.x, text.y, text.w, text.alignH)
-    end
+    love.graphics.printf(text.text, text.x, text.finalY, text.w, text.alignH)
 end
 
 function UI.Image.init(instance, arg)
@@ -61,7 +77,7 @@ function UI.Image.init(instance, arg)
     if arg.image then
         instance.image = love.graphics.newImage(arg.image)
     else
-        instance.image = love.graphics.newImage("NoImage.png")
+        instance.image = love.graphics.newImage("UI/NoImage.png")
     end
     instance.w = arg.w or instance.image:getWidth()
     instance.h = arg.h or instance.image:getHeight()
@@ -138,9 +154,9 @@ end
 
 function UI.Bar.init(instance, arg)
     UIClass.init(instance, arg)
-    instance.h = 20
+    instance.h = 20 or arg.h
     instance.color = arg.color or {1, 0, 0}
-    instance.image = arg.image or love.graphics.newImage("NoImage.png")
+    instance.image = arg.image or love.graphics.newImage("UI/NoImage.png")
     instance.fill = arg.fill or 1
 end
 
@@ -160,6 +176,38 @@ function UI.Bar.draw(bar)
     love.graphics.draw(bar.image, bar.x, bar.y, 0, bar.w / bar.image:getWidth(),
         bar.h / bar.image:getHeight())
     love.graphics.setScissor()
+end
+
+function UI.Slider.init(instance, arg)
+    UIClass.init(instance, arg)
+    instance.h = 20 or arg.h
+    instance.color = arg.color or white
+    instance.imageSlider = arg.imageSlider or love.graphics.newImage("UI/Slider.png")
+    instance.imageBox = arg.imageBox or love.graphics.newImage("UI/backgroundSlider.png")
+    instance.wOfSlider = arg.wOfSlider or instance.imageSlider:getWidth()
+    instance.hOfSlider = arg.hOfSlider or instance.imageSlider:getHeight()
+    instance.fill = arg.fill or 1
+    instance.range = arg.range or 0.8
+end
+
+function UI.Slider:ChangeFill(fill)
+    if fill >= 1 then
+        self.fill = 1
+    elseif fill <= 0 then
+        self.fill = 0
+    else
+        self.fill = fill
+    end
+end
+
+function UI.Slider.draw(slider)
+    love.graphics.setColor(slider.color)
+    love.graphics.draw(slider.imageBox, slider.x, slider.y, 0, slider.w / slider.imageBox:getWidth(),
+    slider.h / slider.imageSlider:getHeight())
+    local finalY = slider.y + (slider.hOfSlider - slider.h) / 2
+    local finalX = slider.x + (slider.fill * slider.w) * slider.range + (1-slider.range)/2*slider.w - slider.wOfSlider/2
+    love.graphics.draw(slider.imageSlider, finalX, finalY, 0, slider.wOfSlider / slider.imageSlider:getWidth(),
+    slider.hOfSlider / slider.imageSlider:getHeight())
 end
 
 function ChangeActiveUI(remove, add)
