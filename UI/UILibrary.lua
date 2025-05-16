@@ -53,14 +53,25 @@ function UI.Text.init(instance, arg)
     end
 end
 
-function UI.Text.textChange(text)
-    text.amountOfLines = math.ceil(#text.text / math.floor(text.w / text.wOfFont))
-    if text.alignV == "down" then
-        text.finalY = text.y + (text.h - text.hOfFont * text.amountOfLines)
-    elseif text.alignV == "center" then
-        text.finalY = text.y + (text.h - text.hOfFont * text.amountOfLines)/2
+function UI.Text:textChange(text)
+    self.text = text
+    self.amountOfLines = math.ceil(#self.text / math.floor(self.w / self.wOfFont))
+    if self.alignV == "down" then
+        self.finalY = self.y + (self.h - self.hOfFont * self.amountOfLines)
+    elseif self.alignV == "center" then
+        self.finalY = self.y + (self.h - self.hOfFont * self.amountOfLines)/2
     else
-        text.finalY = text.y
+        self.finalY = self.y
+    end
+end
+
+function UI.Text:alingVChange(alignV)
+    if alignV == "down" then
+        self.finalY = self.y + (self.h - self.hOfFont * self.amountOfLines)
+    elseif alignV == "center" then
+        self.finalY = self.y + (self.h - self.hOfFont * self.amountOfLines)/2
+    else
+        self.finalY = self.y
     end
 end
 
@@ -98,13 +109,19 @@ function UI.Button.init(instance, arg)
     instance.currentColor = instance.color
     if arg.text then
         instance.text = arg.text
-        instance.text.x = instance.text.x + instance.x
-        instance.text.y = instance.text.y + instance.y
     else
         instance.text = UI.Text.new { x = instance.x, y = instance.y }
     end
+    instance.text.x = instance.text.x + instance.x
+    instance.text.alignH = instance.alignH or "center"
     instance.text.w = instance.w
     instance.text.h = instance.h
+    if instance.alignV then
+        instance.text:alingVChange(instance.alignV)
+    else
+        instance.text:alingVChange("center")
+    end
+    instance.text.finalY = instance.text.finalY + instance.y
     instance.trigger = arg.trigger or function() print("Button Pressed") end
     instance.image = arg.image
 end
@@ -188,15 +205,22 @@ function UI.Slider.init(instance, arg)
     instance.hOfSlider = arg.hOfSlider or instance.imageSlider:getHeight()
     instance.fill = arg.fill or 1
     instance.range = arg.range or 0.8
+    instance.xLeft = instance.x - instance.wOfSlider + (1 - instance.range)/2*instance.w
+    instance.xRight = instance.x - instance.wOfSlider + (1-(1 - instance.range)/2)*instance.w
+    instance.xSlider = instance.xLeft + (instance.xRight - instance.xLeft)*instance.fill
+    instance.ySlider = instance.y + (instance.hOfSlider - instance.h) / 2
 end
 
-function UI.Slider:ChangeFill(fill)
-    if fill >= 1 then
-        self.fill = 1
-    elseif fill <= 0 then
+function UI.Slider:ChangePos(adjX)
+    if self.xSlider + adjX > self.xLeft and self.xSlider + adjX < self.xRight then
+        self.xSlider = self.xSlider + adjX
+        self.fill = (self.xSlider - self.xLeft)/(self.xRight - self.xLeft)
+    elseif  self.x + adjX <= self.xLeft then
+        self.xSlider = self.xLeft
         self.fill = 0
-    else
-        self.fill = fill
+    elseif self.x + adjX >= self.xRight then
+        self.xSlider = self.xRight
+        self.fill = 1
     end
 end
 
@@ -204,9 +228,7 @@ function UI.Slider.draw(slider)
     love.graphics.setColor(slider.color)
     love.graphics.draw(slider.imageBox, slider.x, slider.y, 0, slider.w / slider.imageBox:getWidth(),
     slider.h / slider.imageSlider:getHeight())
-    local finalY = slider.y + (slider.hOfSlider - slider.h) / 2
-    local finalX = slider.x + (slider.fill * slider.w) * slider.range + (1-slider.range)/2*slider.w - slider.wOfSlider/2
-    love.graphics.draw(slider.imageSlider, finalX, finalY, 0, slider.wOfSlider / slider.imageSlider:getWidth(),
+    love.graphics.draw(slider.imageSlider, slider.xSlider, slider.ySlider, 0, slider.wOfSlider / slider.imageSlider:getWidth(),
     slider.hOfSlider / slider.imageSlider:getHeight())
 end
 
@@ -235,9 +257,10 @@ end
 
 local mX
 local mY
+local previousmX
 local currentElementSelected = nil
 local currentElementHovered = nil
-local previousElementIsTextField = false
+local previousTextField = nil
 function UpdateUI()
     mX = love.mouse.getX()
     mY = love.mouse.getY()
@@ -250,6 +273,11 @@ function UpdateUI()
             UpdateElements(ActiveUI)
         end
     end
+    if currentElementSelected and currentElementSelected.isParent(UI.Slider) then
+        currentElementSelected:ChangePos(mX - previousmX)
+    end
+
+    previousmX = love.mouse.getX()
 end
 
 function UpdateElements(ActiveUI)
@@ -272,27 +300,42 @@ function UpdateElements(ActiveUI)
 end
 
 function UIOn1Down()
-    UpdateElementsOn1Down(ActiveUI)
-    if previousElementIsTextField and currentElementSelected and currentElementSelected.isParent(UI.TextField) then
+    if currentElementSelected and currentElementSelected.isParent(UI.TextField) then
+        previousTextField = currentElementSelected
         currentElementSelected.currentColor = currentElementSelected.color
         currentElementSelected = nil
+    else
+        previousTextField = nil
     end
-    previousElementIsTextField = false
+    FindCurrentElement(ActiveUI)
+    if currentElementSelected then
+        if currentElementSelected.isParent(UI.Button) then
+            currentElementSelected.currentColor = currentElementSelected.clickedColor
+            currentElementSelected.trigger()
+        elseif currentElementSelected.isParent(UI.TextField) and currentElementSelected ~= previousTextField then
+            currentElementSelected.currentColor = currentElementSelected.clickedColor
+        elseif currentElementSelected.isParent(UI.Slider) then
+            if mX > currentElementSelected.xSlider and mX < currentElementSelected.xSlider + currentElementSelected.wOfSlider and
+               mY > currentElementSelected.ySlider and mY < currentElementSelected.ySlider + currentElementSelected.hOfSlider then
+            else
+                currentElementSelected = nil
+            end
+        else
+            currentElementSelected = nil
+        end
+    end
 end
 
 function UIon1Release()
     if currentElementSelected and currentElementSelected.isParent(UI.Button) then
         currentElementSelected.currentColor = currentElementSelected.color
         currentElementSelected = nil
+    elseif currentElementSelected and currentElementSelected.isParent(UI.Slider) then
+        currentElementSelected = nil
     end
 end
 
-function UpdateElementsOn1Down(ActiveUI)
-    if currentElementSelected and currentElementSelected.isParent(UI.TextField) then
-        previousElementIsTextField = true
-        currentElementSelected.currentColor = currentElementSelected.color
-        currentElementSelected = nil
-    end
+function FindCurrentElement(ActiveUI)
     for i = #ActiveUI, 1, -1 do
         if currentElementSelected then
             break
@@ -300,17 +343,10 @@ function UpdateElementsOn1Down(ActiveUI)
         if ActiveUI[i].isParent then
             if mX > ActiveUI[i].x and mX < ActiveUI[i].x + ActiveUI[i].w and
                 mY > ActiveUI[i].y and mY < ActiveUI[i].y + ActiveUI[i].h then
-                if ActiveUI[i].isParent(UI.Button) then
-                    ActiveUI[i].currentColor = ActiveUI[i].clickedColor
                     currentElementSelected = ActiveUI[i]
-                    ActiveUI[i].trigger()
-                elseif ActiveUI[i].isParent(UI.TextField) then
-                    ActiveUI[i].currentColor = ActiveUI[i].clickedColor
-                    currentElementSelected = ActiveUI[i]
-                end
             end
         else
-            UpdateElementsOn1Down(ActiveUI[i])
+            FindCurrentElement(ActiveUI[i])
         end
     end
 end
